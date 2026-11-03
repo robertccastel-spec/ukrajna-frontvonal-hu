@@ -31,9 +31,11 @@ jobs:
         run: |
           set -euo pipefail
           npm init -y >/dev/null 2>&1
-          npm install --silent fast-xml-parser polygon-clipping
-          mkdir -p _site/data
+          npm install --silent fast-xml-parser polygon-clipping maplibre-gl@6.12.0
+          mkdir -p _site/data _site/vendor
           cp index.html _site/index.html
+          cp node_modules/maplibre-gl/dist/maplibre-gl.js _site/vendor/maplibre-gl.js
+          cp node_modules/maplibre-gl/dist/maplibre-gl.css _site/vendor/maplibre-gl.css
           touch _site/.nojekyll
           node generate-latest.mjs
           test -s _site/data/latest.json
