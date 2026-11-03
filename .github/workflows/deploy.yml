@@ -1,0 +1,81 @@
+name: Magyar frontvonal-térkép publikálása
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * *'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Magyarító repository letöltése
+        uses: actions/checkout@v4
+
+      - name: Upstream projekt letöltése
+        run: git clone --depth 1 https://github.com/VladislavPrimakov/graphs.git upstream
+
+      - name: Magyar lokalizáció alkalmazása
+        run: python apply_hu_localization.py upstream
+
+      - name: GitHub Pages alútvonal beállítása
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          base = '/ukrajna-frontvonal-hu/'
+          p = Path('upstream/site/vite.config.ts')
+          s = p.read_text()
+          s = s.replace("base: '/',", f"base: '{base}',")
+          p.write_text(s)
+
+          p = Path('upstream/site/react-router.config.ts')
+          s = p.read_text()
+          s = s.replace("basename: '/',", f"basename: '{base}',")
+          # A prerender útvonalaknak tartalmazniuk kell a basename-t.
+          s = s.replace("return ['/', ...defaultProjectPaths, ...defaultSectionPaths, ...changelogPaths, ...notFoundPaths, ...localizedPaths];",
+                        "return [basePath, ...defaultProjectPaths, ...defaultSectionPaths, ...changelogPaths, ...notFoundPaths, ...localizedPaths].map((p) => p === '/' ? basePath : basePath.replace(/\\\/$/, '') + p);")
+          s = s.replace("  async prerender() {", "  async prerender() {\n    const basePath = '/ukrajna-frontvonal-hu/';")
+          p.write_text(s)
+          PY
+
+      - name: Bun telepítése
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Függőségek telepítése
+        working-directory: upstream
+        run: bun install --frozen-lockfile
+
+      - name: Oldal felépítése
+        working-directory: upstream
+        run: bun run build
+
+      - name: GitHub Pages beállítása
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Pages csomag feltöltése
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: upstream/site/dist/client
+
+      - name: Publikálás
+        id: deployment
+        uses: actions/deploy-pages@v4
