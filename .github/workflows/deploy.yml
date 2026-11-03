@@ -17,64 +17,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Magyarító repository letöltése
+      - name: Repository letöltése
         uses: actions/checkout@v4
 
-      - name: Upstream projekt letöltése
-        run: git clone --depth 1 https://github.com/VladislavPrimakov/graphs.git upstream
-
-      - name: Magyar lokalizáció alkalmazása
-        run: python apply_hu_localization.py upstream
-
-      - name: GitHub Pages alútvonal beállítása
+      - name: Statikus oldal összeállítása
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          base = '/ukrajna-frontvonal-hu/'
-          p = Path('upstream/site/vite.config.ts')
-          s = p.read_text()
-          s = s.replace("base: '/',", f"base: '{base}',")
-          p.write_text(s)
+          set -euo pipefail
+          mkdir -p _site/data
+          cp index.html _site/index.html
+          touch _site/.nojekyll
 
-          p = Path('upstream/site/react-router.config.ts')
-          s = p.read_text()
-          s = s.replace("basename: '/',", f"basename: '{base}',")
-          # A prerender útvonalaknak tartalmazniuk kell a basename-t.
-          s = s.replace("return ['/', ...defaultProjectPaths, ...defaultSectionPaths, ...changelogPaths, ...notFoundPaths, ...localizedPaths];",
-                        "return [basePath, ...defaultProjectPaths, ...defaultSectionPaths, ...changelogPaths, ...notFoundPaths, ...localizedPaths].map((p) => p === '/' ? basePath : basePath.slice(0, -1) + p);")
-          s = s.replace("  async prerender() {", "  async prerender() {\n    const basePath = '/ukrajna-frontvonal-hu/';")
-          p.write_text(s)
-          PY
+          BASE="https://graphs.prima.ovh/data/war-rf-ua"
+          curl --fail --silent --show-error --retry 3 "$BASE/frontline-map.json" -o _site/data/frontline-map.json
 
-      - name: Bun telepítése
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+          CURRENT_YEAR=$(date -u +%Y)
+          for YEAR in $(seq 2022 "$CURRENT_YEAR"); do
+            echo "Frontvonal-adatok: $YEAR"
+            curl --fail --silent --show-error --retry 3 "$BASE/frontline-history-$YEAR.json" -o "_site/data/frontline-history-$YEAR.json" || true
+          done
 
-      - name: Függőségek telepítése
-        working-directory: upstream
-        run: bun install --frozen-lockfile
-
-      - name: Oldal felépítése
-        working-directory: upstream
-        run: bun run build
+          test -s _site/data/frontline-map.json
 
       - name: GitHub Pages beállítása
         uses: actions/configure-pages@v5
         with:
           enablement: true
 
-      - name: Pages csomag feltöltése
+      - name: Oldalcsomag feltöltése
         uses: actions/upload-pages-artifact@v3
         with:
-          path: upstream/site/dist/client
+          path: _site
 
       - name: Publikálás
         id: deployment
