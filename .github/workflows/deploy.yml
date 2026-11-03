@@ -48,7 +48,7 @@ jobs:
           s = s.replace("basename: '/',", f"basename: '{base}',")
           # A prerender útvonalaknak tartalmazniuk kell a basename-t.
           s = s.replace("return ['/', ...defaultProjectPaths, ...defaultSectionPaths, ...changelogPaths, ...notFoundPaths, ...localizedPaths];",
-                        "return [basePath, ...defaultProjectPaths, ...defaultSectionPaths, ...changelogPaths, ...notFoundPaths, ...localizedPaths].map((p) => p === '/' ? basePath : basePath.replace(/\\\/$/, '') + p);")
+                        "return [basePath, ...defaultProjectPaths, ...defaultSectionPaths, ...changelogPaths, ...notFoundPaths, ...localizedPaths].map((p) => p === '/' ? basePath : basePath.slice(0, -1) + p);")
           s = s.replace("  async prerender() {", "  async prerender() {\n    const basePath = '/ukrajna-frontvonal-hu/';")
           p.write_text(s)
           PY
