@@ -144,6 +144,16 @@ function preferHungarianMapLabels(map: MapLibreMap): void {
     s = s.replace(old, new, 1)
     write(frontmap, s)
 
+# Keep upstream locale-coverage tests type-complete after adding Hungarian.
+regions_test = 'pipelines/src/country/regions.test.ts'
+s = read(regions_test)
+old = "      de: [],\n    };"
+new = "      de: [],\n      hu: [],\n    };"
+if new not in s:
+    if old not in s:
+        raise SystemExit('Nem található a locale-teszt beszúrási pontja.')
+    write(regions_test, s.replace(old, new, 1))
+
 for rel in [
     'site/src/locales/common-hu.ts',
     'site/src/projects/war-rf-ua/locales/dict-hu.ts',
