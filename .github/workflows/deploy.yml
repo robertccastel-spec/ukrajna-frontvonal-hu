@@ -64,7 +64,7 @@ jobs:
 
       - name: Oldal felépítése
         working-directory: upstream
-        run: bun run build:site
+        run: bun run build
 
       - name: GitHub Pages beállítása
         uses: actions/configure-pages@v5
