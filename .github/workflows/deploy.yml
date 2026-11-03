@@ -27,22 +27,53 @@ jobs:
       - name: Repository letöltése
         uses: actions/checkout@v4
 
-      - name: Statikus oldal összeállítása
+      - name: Chromium előkészítése
         run: |
-          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install playwright@1.56.1 --silent
+          npx playwright install chromium --with-deps
+
+      - name: Friss frontvonal-adatok átvétele
+        run: |
           mkdir -p _site/data
           cp index.html _site/index.html
           touch _site/.nojekyll
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+          (async () => {
+            const browser = await chromium.launch({headless:true});
+            const page = await browser.newPage({
+              userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/156.0 Safari/537.36'
+            });
+            await page.goto('https://graphs.prima.ovh/war-rf-ua/frontline-map/', {waitUntil:'domcontentloaded', timeout:120000});
+            await page.waitForTimeout(3000);
 
-          BASE="https://graphs.prima.ovh/data/war-rf-ua"
-          curl --fail --silent --show-error --retry 3 -A "Mozilla/5.0" -e "https://graphs.prima.ovh/war-rf-ua/frontline-map/" "$BASE/frontline-map.json" -o _site/data/frontline-map.json
+            async function get(path) {
+              return await page.evaluate(async (p) => {
+                const r = await fetch(p, {cache:'no-store'});
+                if (!r.ok) throw new Error('HTTP '+r.status+' '+p);
+                return await r.text();
+              }, path);
+            }
 
-          CURRENT_YEAR=$(date -u +%Y)
-          for YEAR in $(seq 2022 "$CURRENT_YEAR"); do
-            echo "Frontvonal-adatok: $YEAR"
-            curl --fail --silent --show-error --retry 3 -A "Mozilla/5.0" -e "https://graphs.prima.ovh/war-rf-ua/frontline-map/" "$BASE/frontline-history-$YEAR.json" -o "_site/data/frontline-history-$YEAR.json" || true
-          done
+            const fm = await get('/data/war-rf-ua/frontline-map.json');
+            fs.writeFileSync('_site/data/frontline-map.json', fm);
 
+            const summary = JSON.parse(fm);
+            const endYear = Number((summary.summary?.latestDate || new Date().getUTCFullYear().toString()).slice(0,4));
+            for (let y=2022; y<=endYear; y++) {
+              try {
+                const body = await get('/data/war-rf-ua/frontline-history-'+y+'.json');
+                fs.writeFileSync('_site/data/frontline-history-'+y+'.json', body);
+                console.log('Letöltve:', y);
+              } catch (e) {
+                console.warn('Kihagyva:', y, e.message);
+              }
+            }
+            await browser.close();
+          })().catch(e => { console.error(e); process.exit(1); });
+          NODE
           test -s _site/data/frontline-map.json
 
       - name: GitHub Pages beállítása
