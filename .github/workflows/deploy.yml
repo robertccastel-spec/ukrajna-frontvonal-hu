@@ -35,12 +35,12 @@ jobs:
           touch _site/.nojekyll
 
           BASE="https://graphs.prima.ovh/data/war-rf-ua"
-          curl --fail --silent --show-error --retry 3 "$BASE/frontline-map.json" -o _site/data/frontline-map.json
+          curl --fail --silent --show-error --retry 3 -A "Mozilla/5.0" -e "https://graphs.prima.ovh/war-rf-ua/frontline-map/" "$BASE/frontline-map.json" -o _site/data/frontline-map.json
 
           CURRENT_YEAR=$(date -u +%Y)
           for YEAR in $(seq 2022 "$CURRENT_YEAR"); do
             echo "Frontvonal-adatok: $YEAR"
-            curl --fail --silent --show-error --retry 3 "$BASE/frontline-history-$YEAR.json" -o "_site/data/frontline-history-$YEAR.json" || true
+            curl --fail --silent --show-error --retry 3 -A "Mozilla/5.0" -e "https://graphs.prima.ovh/war-rf-ua/frontline-map/" "$BASE/frontline-history-$YEAR.json" -o "_site/data/frontline-history-$YEAR.json" || true
           done
 
           test -s _site/data/frontline-map.json
