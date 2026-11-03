@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Orosz–ukrán háború – frontvonalak összehasonlítása</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@6.12.0/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="./vendor/maplibre-gl.css">
   <style>
     :root{color-scheme:dark;--bg:#0b0f14;--panel:rgba(12,17,24,.92);--border:#2b3440;--text:#f3f6f9;--muted:#aab4bf;--ds:#38bdf8;--la:#fb7185;--rf:#dc2626;--dis:#9ca3af}
     *{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:var(--text)}
@@ -50,7 +50,7 @@
       <button id="resetBtn" type="button">Alaphelyzet</button>
     </div>
   </div>
-  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@6.12.0/dist/maplibre-gl.js"></script>
+  <script src="./vendor/maplibre-gl.js"></script>
   <script>
   (() => {
     const fmtNum = new Intl.NumberFormat('hu-HU',{maximumFractionDigits:1});
