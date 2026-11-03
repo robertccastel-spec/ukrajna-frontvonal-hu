@@ -11,16 +11,16 @@
     body{display:flex;flex-direction:column}.top{padding:12px 16px 10px;border-bottom:1px solid var(--border);background:#0d131b}
     h1{font-size:18px;margin:0 0 4px;font-weight:700}.sub{font-size:12px;color:var(--muted)}
     #mapWrap{position:relative;flex:1;min-height:520px}#map{position:absolute;inset:0}
-    .legend{position:absolute;left:14px;bottom:76px;z-index:5;width:min(430px,calc(100% - 28px));background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:10px;padding:12px;box-shadow:0 8px 30px #0008}
+    .legend{position:absolute;left:14px;bottom:14px;z-index:5;width:min(430px,calc(100% - 28px));background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:10px;padding:12px;box-shadow:0 8px 30px #0008}
     .legendTitle{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
     .row{display:grid;grid-template-columns:18px 1fr auto;gap:8px;align-items:center;font-size:12px;padding:3px 0}.row .v{font-variant-numeric:tabular-nums;color:#fff}.row .n{color:#d4dbe3}
     .sw{width:13px;height:13px;border-radius:2px}.ln{width:16px;height:3px;border-radius:4px}
-    .controls{position:absolute;left:14px;right:14px;bottom:14px;z-index:6;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 10px;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
-    .date{font-size:12px;font-weight:700;min-width:105px}.slider{width:100%}button{border:1px solid #3b4654;background:#18212c;color:#fff;border-radius:7px;padding:6px 9px;cursor:pointer;font-size:12px}button:hover{background:#223041}
-    .years{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.years button{padding:3px 7px;font-size:11px}.years button.active{outline:2px solid #60a5fa}
+    
+    
+    
     .status{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:#0b0f14;color:#dbe5ef;font-size:14px}.status.err{color:#fecaca;padding:30px;text-align:center}
     .credit{position:absolute;right:10px;top:10px;z-index:4;background:#0b0f14cc;border:1px solid var(--border);padding:5px 7px;border-radius:6px;font-size:10px;color:var(--muted)}
-    .credit a{color:#cbd5e1}@media(max-width:650px){.legend{bottom:92px}.controls{grid-template-columns:1fr auto}.slider{grid-column:1/-1;grid-row:2}.date{min-width:0}h1{font-size:15px}}
+    .credit a{color:#cbd5e1}@media(max-width:650px){.legend{left:8px;bottom:8px;width:calc(100% - 16px)}h1{font-size:15px}}
   </style>
 </head>
 <body>
@@ -40,14 +40,6 @@
       <div style="height:1px;background:var(--border);margin:7px 0"></div>
       <div class="row"><span class="ln" style="background:var(--ds)"></span><span class="n">DeepState szerinti frontvonal – ukrán értékelés</span><span class="v" id="dsVal">—</span></div>
       <div class="row"><span class="ln" style="background:var(--la)"></span><span class="n">LostArmour szerinti frontvonal – orosz értékelés</span><span class="v" id="laVal">—</span></div>
-    </div>
-    <div class="controls">
-      <div>
-        <div id="dateText" class="date">—</div>
-        <div id="years" class="years"></div>
-      </div>
-      <input id="slider" class="slider" type="range" min="0" max="0" value="0" step="1" aria-label="Dátum">
-      <button id="resetBtn" type="button">Alaphelyzet</button>
     </div>
   </div>
   <script src="./vendor/maplibre-gl.js"></script>
@@ -71,13 +63,13 @@
     function update(i){
       currentIndex=Math.max(0,Math.min(dates.length-1,Number(i)||0));const day=dates[currentIndex],p=pointFor(day),t=data.summary.totalUkraineKm2||603628,l=resolve(day);
       srcSet('rf',l.consensusRf);srcSet('dis',l.disputed);srcSet('ds',l.deepstate);srcSet('la',l.lostarmour);
-      document.getElementById('slider').value=currentIndex;document.getElementById('dateText').textContent=huDate(day);document.getElementById('legendDate').textContent=huDate(day);
+      document.getElementById('legendDate').textContent=huDate(day);
       document.getElementById('rfVal').textContent=val(p.consensusRfKm2,100*p.consensusRfKm2/t);
       document.getElementById('disVal').textContent=val(p.disputedKm2,100*p.disputedKm2/t);
       document.getElementById('uaVal').textContent=val(p.consensusUaKm2,100*p.consensusUaKm2/t);
       const ds=(p.dsOccupiedKm2||0)+(p.dsGreyKm2||0);document.getElementById('dsVal').textContent=val(ds,100*ds/t);
       document.getElementById('laVal').textContent=val(p.laClaimedKm2,100*p.laClaimedKm2/t);
-      document.querySelectorAll('#years button').forEach(b=>b.classList.toggle('active',day.startsWith(b.dataset.year)));
+
     }
     function preferHuLabels(){
       for(const layer of (map.getStyle().layers||[])){if(layer.type!=='symbol')continue;let cur;try{cur=map.getLayoutProperty(layer.id,'text-field')}catch{}if(cur==null)continue;try{map.setLayoutProperty(layer.id,'text-field',['coalesce',['get','name:hu'],['get','name:latin'],['get','name']])}catch{}}
@@ -88,9 +80,6 @@
         data=await loadJson('./data/latest.json');
         dates=[data.date||data.summary.latestDate];
         history[dates[0]]=data.layers;
-        const years=[dates[0].slice(0,4)];
-        const slider=document.getElementById('slider');slider.max=dates.length-1;slider.value=dates.length-1;slider.addEventListener('input',e=>update(e.target.value));
-        const ybox=document.getElementById('years');years.forEach(y=>{const b=document.createElement('button');b.textContent=y;b.dataset.year=y;b.onclick=()=>{const ix=dates.findIndex(d=>d.startsWith(y));if(ix>=0)update(ix)};ybox.appendChild(b)});
         map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/dark',center:[36.5,48.3],zoom:6,minZoom:3,maxZoom:18});
         map.addControl(new maplibregl.NavigationControl({showCompass:true,showZoom:true}),'top-right');
         map.on('load',()=>{
@@ -102,7 +91,6 @@
           map.addSource('la',{type:'geojson',data:geo(L.lostarmour)});map.addLayer({id:'la-line',type:'line',source:'la',paint:{'line-color':'#fb7185','line-width':2.5,'line-opacity':.95}});
           update(dates.length-1);document.getElementById('status').style.display='none';
         });
-        document.getElementById('resetBtn').onclick=()=>{map.fitBounds([[22,44.2],[40.3,52.4]],{padding:30});update(dates.length-1)};
       }catch(e){const s=document.getElementById('status');s.className='status err';s.textContent='A térképadatok betöltése sikertelen: '+e.message}
     }
     main();
