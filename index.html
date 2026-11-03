@@ -67,7 +67,7 @@
     function decodeMulti(encoded){return (encoded||[]).map(poly=>poly.map(r=>decodeRing(r)))}
     function resolve(day){let e=history[day],depth=0;while(e&&e.ref&&depth++<30)e=history[e.ref];if(!e||e.ref)return {consensusRf:[],disputed:[],deepstate:[],lostarmour:[]};if(e.consensusRf)return e;return {consensusRf:decodeMulti(e.c),disputed:decodeMulti(e.d),deepstate:decodeMulti(e.ds),lostarmour:decodeMulti(e.la)}}
     function srcSet(id,c){const s=map.getSource(id);if(s)s.setData(geo(c))}
-    function pointFor(day){return data.timeline.find(x=>x.date===day)||data.summary}
+    function pointFor(day){return data.summary}
     function update(i){
       currentIndex=Math.max(0,Math.min(dates.length-1,Number(i)||0));const day=dates[currentIndex],p=pointFor(day),t=data.summary.totalUkraineKm2||603628,l=resolve(day);
       srcSet('rf',l.consensusRf);srcSet('dis',l.disputed);srcSet('ds',l.deepstate);srcSet('la',l.lostarmour);
@@ -85,12 +85,10 @@
     async function loadJson(path){const r=await fetch(path,{cache:'no-store'});if(!r.ok)throw new Error(path+' – HTTP '+r.status);return r.json()}
     async function main(){
       try{
-        data=await loadJson('./data/frontline-map.json');
-        dates=(data.timeline||[]).map(x=>x.date);
-        if(!dates.length)dates=[data.summary.latestDate];
-        const years=[...new Set(dates.map(d=>d.slice(0,4)))];
-        const histories=await Promise.all(years.map(y=>loadJson('./data/frontline-history-'+y+'.json').catch(()=>({}))));
-        histories.forEach(h=>Object.assign(history,h));
+        data=await loadJson('./data/latest.json');
+        dates=[data.date||data.summary.latestDate];
+        history[dates[0]]=data.layers;
+        const years=[dates[0].slice(0,4)];
         const slider=document.getElementById('slider');slider.max=dates.length-1;slider.value=dates.length-1;slider.addEventListener('input',e=>update(e.target.value));
         const ybox=document.getElementById('years');years.forEach(y=>{const b=document.createElement('button');b.textContent=y;b.dataset.year=y;b.onclick=()=>{const ix=dates.findIndex(d=>d.startsWith(y));if(ix>=0)update(ix)};ybox.appendChild(b)});
         map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/dark',center:[36.5,48.3],zoom:6,minZoom:3,maxZoom:18});
