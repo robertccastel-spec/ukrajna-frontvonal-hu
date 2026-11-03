@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="hu">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Orosz–ukrán háború – frontvonalak összehasonlítása</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@6.12.0/dist/maplibre-gl.css">
+  <style>
+    :root{color-scheme:dark;--bg:#0b0f14;--panel:rgba(12,17,24,.92);--border:#2b3440;--text:#f3f6f9;--muted:#aab4bf;--ds:#38bdf8;--la:#fb7185;--rf:#dc2626;--dis:#9ca3af}
+    *{box-sizing:border-box}html,body{margin:0;height:100%;background:var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Arial,sans-serif;color:var(--text)}
+    body{display:flex;flex-direction:column}.top{padding:12px 16px 10px;border-bottom:1px solid var(--border);background:#0d131b}
+    h1{font-size:18px;margin:0 0 4px;font-weight:700}.sub{font-size:12px;color:var(--muted)}
+    #mapWrap{position:relative;flex:1;min-height:520px}#map{position:absolute;inset:0}
+    .legend{position:absolute;left:14px;bottom:76px;z-index:5;width:min(430px,calc(100% - 28px));background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--border);border-radius:10px;padding:12px;box-shadow:0 8px 30px #0008}
+    .legendTitle{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
+    .row{display:grid;grid-template-columns:18px 1fr auto;gap:8px;align-items:center;font-size:12px;padding:3px 0}.row .v{font-variant-numeric:tabular-nums;color:#fff}.row .n{color:#d4dbe3}
+    .sw{width:13px;height:13px;border-radius:2px}.ln{width:16px;height:3px;border-radius:4px}
+    .controls{position:absolute;left:14px;right:14px;bottom:14px;z-index:6;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 10px;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+    .date{font-size:12px;font-weight:700;min-width:105px}.slider{width:100%}button{border:1px solid #3b4654;background:#18212c;color:#fff;border-radius:7px;padding:6px 9px;cursor:pointer;font-size:12px}button:hover{background:#223041}
+    .years{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}.years button{padding:3px 7px;font-size:11px}.years button.active{outline:2px solid #60a5fa}
+    .status{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:#0b0f14;color:#dbe5ef;font-size:14px}.status.err{color:#fecaca;padding:30px;text-align:center}
+    .credit{position:absolute;right:10px;top:10px;z-index:4;background:#0b0f14cc;border:1px solid var(--border);padding:5px 7px;border-radius:6px;font-size:10px;color:var(--muted)}
+    .credit a{color:#cbd5e1}@media(max-width:650px){.legend{bottom:92px}.controls{grid-template-columns:1fr auto}.slider{grid-column:1/-1;grid-row:2}.date{min-width:0}h1{font-size:15px}}
+  </style>
+</head>
+<body>
+  <div class="top">
+    <h1>Orosz–ukrán háború – területi ellenőrzés és a frontvonalak eltérése</h1>
+    <div class="sub">DeepState (ukrán OSINT-értékelés) és LostArmour (orosz OSINT-értékelés) egy térképen</div>
+  </div>
+  <div id="mapWrap">
+    <div id="map"></div>
+    <div id="status" class="status">A térképadatok betöltése…</div>
+    <div class="credit">Forrás: <a href="https://deepstatemap.live/" target="_blank">DeepState</a> · <a href="https://lostarmour.info/map" target="_blank">LostArmour</a> · <a href="https://github.com/VladislavPrimakov/graphs" target="_blank">upstream</a></div>
+    <div class="legend">
+      <div class="legendTitle">Területi ellenőrzés – <span id="legendDate">—</span></div>
+      <div class="row"><span class="sw" style="background:var(--rf)"></span><span class="n">Mindkét forrás szerint orosz ellenőrzés alatt</span><span class="v" id="rfVal">—</span></div>
+      <div class="row"><span class="sw" style="background:var(--dis)"></span><span class="n">Eltérően megítélt / vitatott terület</span><span class="v" id="disVal">—</span></div>
+      <div class="row"><span class="sw" style="background:#334155"></span><span class="n">Mindkét forrás szerint ukrán ellenőrzés alatt</span><span class="v" id="uaVal">—</span></div>
+      <div style="height:1px;background:var(--border);margin:7px 0"></div>
+      <div class="row"><span class="ln" style="background:var(--ds)"></span><span class="n">DeepState szerinti frontvonal – ukrán értékelés</span><span class="v" id="dsVal">—</span></div>
+      <div class="row"><span class="ln" style="background:var(--la)"></span><span class="n">LostArmour szerinti frontvonal – orosz értékelés</span><span class="v" id="laVal">—</span></div>
+    </div>
+    <div class="controls">
+      <div>
+        <div id="dateText" class="date">—</div>
+        <div id="years" class="years"></div>
+      </div>
+      <input id="slider" class="slider" type="range" min="0" max="0" value="0" step="1" aria-label="Dátum">
+      <button id="resetBtn" type="button">Alaphelyzet</button>
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/maplibre-gl@6.12.0/dist/maplibre-gl.js"></script>
+  <script>
+  (() => {
+    const fmtNum = new Intl.NumberFormat('hu-HU',{maximumFractionDigits:1});
+    const fmtPct = new Intl.NumberFormat('hu-HU',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const fmtDate = new Intl.DateTimeFormat('hu-HU',{year:'numeric',month:'long',day:'numeric'});
+    let data, history={}, dates=[], map, currentIndex=0;
+
+    function huDate(s){const [y,m,d]=s.split('-').map(Number);return fmtDate.format(new Date(Date.UTC(y,m-1,d)))}
+    function val(km,pct){return fmtNum.format(km)+' km² ('+fmtPct.format(pct)+'%)'}
+    function emptyGeo(){return {type:'FeatureCollection',features:[]}}
+    function geo(coords){return !coords||!coords.length?emptyGeo():{type:'FeatureCollection',features:[{type:'Feature',properties:{},geometry:{type:'MultiPolygon',coordinates:coords}}]}}
+    function decodeNumber(str,ref){let result=0,shift=0,b=0;do{b=str.charCodeAt(ref.i++)-63;result|=(b&31)<<shift;shift+=5}while(b>=32);return result&1?~(result>>1):result>>1}
+    function decodeRing(str,f=1e4){const pts=[],r={i:0};let lng=0,lat=0;while(r.i<str.length){lng+=decodeNumber(str,r);lat+=decodeNumber(str,r);pts.push([lng/f,lat/f])}return pts}
+    function decodeMulti(encoded){return (encoded||[]).map(poly=>poly.map(r=>decodeRing(r)))}
+    function resolve(day){let e=history[day],depth=0;while(e&&e.ref&&depth++<30)e=history[e.ref];if(!e||e.ref)return {consensusRf:[],disputed:[],deepstate:[],lostarmour:[]};if(e.consensusRf)return e;return {consensusRf:decodeMulti(e.c),disputed:decodeMulti(e.d),deepstate:decodeMulti(e.ds),lostarmour:decodeMulti(e.la)}}
+    function srcSet(id,c){const s=map.getSource(id);if(s)s.setData(geo(c))}
+    function pointFor(day){return data.timeline.find(x=>x.date===day)||data.summary}
+    function update(i){
+      currentIndex=Math.max(0,Math.min(dates.length-1,Number(i)||0));const day=dates[currentIndex],p=pointFor(day),t=data.summary.totalUkraineKm2||603628,l=resolve(day);
+      srcSet('rf',l.consensusRf);srcSet('dis',l.disputed);srcSet('ds',l.deepstate);srcSet('la',l.lostarmour);
+      document.getElementById('slider').value=currentIndex;document.getElementById('dateText').textContent=huDate(day);document.getElementById('legendDate').textContent=huDate(day);
+      document.getElementById('rfVal').textContent=val(p.consensusRfKm2,100*p.consensusRfKm2/t);
+      document.getElementById('disVal').textContent=val(p.disputedKm2,100*p.disputedKm2/t);
+      document.getElementById('uaVal').textContent=val(p.consensusUaKm2,100*p.consensusUaKm2/t);
+      const ds=(p.dsOccupiedKm2||0)+(p.dsGreyKm2||0);document.getElementById('dsVal').textContent=val(ds,100*ds/t);
+      document.getElementById('laVal').textContent=val(p.laClaimedKm2,100*p.laClaimedKm2/t);
+      document.querySelectorAll('#years button').forEach(b=>b.classList.toggle('active',day.startsWith(b.dataset.year)));
+    }
+    function preferHuLabels(){
+      for(const layer of (map.getStyle().layers||[])){if(layer.type!=='symbol')continue;let cur;try{cur=map.getLayoutProperty(layer.id,'text-field')}catch{}if(cur==null)continue;try{map.setLayoutProperty(layer.id,'text-field',['coalesce',['get','name:hu'],['get','name:latin'],['get','name']])}catch{}}
+    }
+    async function loadJson(path){const r=await fetch(path,{cache:'no-store'});if(!r.ok)throw new Error(path+' – HTTP '+r.status);return r.json()}
+    async function main(){
+      try{
+        data=await loadJson('./data/frontline-map.json');
+        dates=(data.timeline||[]).map(x=>x.date);
+        if(!dates.length)dates=[data.summary.latestDate];
+        const years=[...new Set(dates.map(d=>d.slice(0,4)))];
+        const histories=await Promise.all(years.map(y=>loadJson('./data/frontline-history-'+y+'.json').catch(()=>({}))));
+        histories.forEach(h=>Object.assign(history,h));
+        const slider=document.getElementById('slider');slider.max=dates.length-1;slider.value=dates.length-1;slider.addEventListener('input',e=>update(e.target.value));
+        const ybox=document.getElementById('years');years.forEach(y=>{const b=document.createElement('button');b.textContent=y;b.dataset.year=y;b.onclick=()=>{const ix=dates.findIndex(d=>d.startsWith(y));if(ix>=0)update(ix)};ybox.appendChild(b)});
+        map=new maplibregl.Map({container:'map',style:'https://tiles.openfreemap.org/styles/dark',center:[36.5,48.3],zoom:6,minZoom:3,maxZoom:18});
+        map.addControl(new maplibregl.NavigationControl({showCompass:true,showZoom:true}),'top-right');
+        map.on('load',()=>{
+          preferHuLabels();
+          const L=resolve(dates.at(-1));
+          map.addSource('rf',{type:'geojson',data:geo(L.consensusRf)});map.addLayer({id:'rf-fill',type:'fill',source:'rf',paint:{'fill-color':'#dc2626','fill-opacity':.30}});
+          map.addSource('dis',{type:'geojson',data:geo(L.disputed)});map.addLayer({id:'dis-fill',type:'fill',source:'dis',paint:{'fill-color':'#9ca3af','fill-opacity':.38}});map.addLayer({id:'dis-line',type:'line',source:'dis',paint:{'line-color':'#d1d5db','line-width':1,'line-opacity':.7}});
+          map.addSource('ds',{type:'geojson',data:geo(L.deepstate)});map.addLayer({id:'ds-line',type:'line',source:'ds',paint:{'line-color':'#38bdf8','line-width':2.5,'line-opacity':.95}});
+          map.addSource('la',{type:'geojson',data:geo(L.lostarmour)});map.addLayer({id:'la-line',type:'line',source:'la',paint:{'line-color':'#fb7185','line-width':2.5,'line-opacity':.95}});
+          update(dates.length-1);document.getElementById('status').style.display='none';
+        });
+        document.getElementById('resetBtn').onclick=()=>{map.fitBounds([[22,44.2],[40.3,52.4]],{padding:30});update(dates.length-1)};
+      }catch(e){const s=document.getElementById('status');s.className='status err';s.textContent='A térképadatok betöltése sikertelen: '+e.message}
+    }
+    main();
+  })();
+  </script>
+</body>
+</html>
